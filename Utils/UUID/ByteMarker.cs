@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TheGenesis.Core.Utils.UUID.Generator
+namespace TheGenesis.Core.Utils.UUID
 {
     internal static class ByteMarker
     {
