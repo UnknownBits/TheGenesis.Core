@@ -6,67 +6,53 @@ using System.Net.NetworkInformation;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Net.Mime;
+using System.IO;
 
 namespace TheGenesis.Core.Utils
 {
-    public class Network : IDisposable
+    public static class Network
     {
-        private HttpClient HttpClient;
-        private bool disposedValue;
+        public static readonly HttpClient HttpClient = new HttpClient();
 
-        public Network()
-        {
-            HttpClient = new HttpClient();
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-        }
-
-        public HttpResponseMessage HttpGet(string url, string content_type = "application/json", Dictionary<string, string> headerPairs = null)
-            => HttpGetAsync(url, content_type, headerPairs).Result;
-
-        public async Task<HttpResponseMessage> HttpGetAsync(string url, string content_type = "application/json", Dictionary<string, string> headerPairs = null)
+        public static async Task<HttpResponseMessage> HttpGetAsync(string url, string content_type = "application/json", Dictionary<string, string>? headers = null)
         {
             using HttpRequestMessage message = new HttpRequestMessage(HttpMethod.Get, url);
             message.Content = new StringContent("");
             message.Content.Headers.ContentType = new MediaTypeHeaderValue(content_type);
-            if (headerPairs != null)
-                foreach (var pair in headerPairs) message.Headers.Add(pair.Key, pair.Value);
+            if (headers != null)
+                foreach (var pair in headers) message.Headers.Add(pair.Key, pair.Value);
             return await HttpClient.SendAsync(message);
         }
 
-        public HttpResponseMessage HttpPost(string url, string content, string content_type = "application/json", Dictionary<string, string> headerPairs = null)
-            => HttpPostAsync(url, content, content_type, headerPairs).Result;
-        public HttpResponseMessage HttpPost(string url, HttpContent content, Dictionary<string, string> headerPairs = null)
-            => HttpPostAsync(url, content, headerPairs).Result;
+        public static HttpResponseMessage HttpGet(string url, string content_type = "application/json", Dictionary<string, string>? headers = null)
+            => HttpGetAsync(url, content_type, headers).Result;
 
-        public async Task<HttpResponseMessage> HttpPostAsync(string url, string content, string content_type = "application/json", Dictionary<string, string> headerPairs = null)
+        public static async Task<HttpResponseMessage> HttpPostAsync(string url, HttpContent content, Dictionary<string, string>? headers = null)
         {
-            using var strContent = new StringContent(content);
+            using var message = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+            if (headers != null) foreach (var pair in headers) message.Headers.Add(pair.Key, pair.Value);
+            return await HttpClient.SendAsync(message);
+        }
+
+        public static async Task<HttpResponseMessage> HttpPostAsync(string url, string content, Dictionary<string, string>? headers = null, string content_type = "application/json")
+        {
+            HttpContent strContent = new StringContent(content);
             strContent.Headers.ContentType = new MediaTypeHeaderValue(content_type);
-            return await HttpPostAsync(url, strContent, headerPairs);
+            return await HttpPostAsync(url, strContent, headers);
         }
 
-        public async Task<HttpResponseMessage> HttpPostAsync(string url, HttpContent content, Dictionary<string, string> headerPairs = null)
-        {
-            using HttpRequestMessage message = new HttpRequestMessage(HttpMethod.Post, url);
-            message.Content = content;
-            if (headerPairs != null)
-                foreach (var pair in headerPairs) message.Headers.Add(pair.Key, pair.Value);
-            return await HttpClient.SendAsync(message);
-        }
+        public static HttpResponseMessage HttpPost(string url, HttpContent content, Dictionary<string, string>? headers = null)
+            => HttpPostAsync(url, content, headers).Result;
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing) HttpClient?.Dispose();
-                disposedValue = true;
-            }
-        }
+        public static HttpResponseMessage HttpPost(string url, string content, string content_type = "application/json", Dictionary<string, string>? headers = null) 
+            => HttpPostAsync(url, content, headers, content_type).Result;
 
-        public void Dispose()
+        public static string ReadAsString(this HttpContent content)
         {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
+            using var stream = content.ReadAsStreamAsync().Result;
+            using var streamReader = new StreamReader(stream);
+            return streamReader.ReadToEnd();
         }
     }
 }
